@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>【SW2.5】耐久チェッカー Ver.1</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas"></script>
+
+<style>
+body {
+    margin:0;
+    padding:20px;
+    font-family:sans-serif;
+    color:#ddd;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 1px, transparent 1px),
+        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(135deg,#0f172a,#1e293b,#020617);
+}
+
+h1 { text-align:center; }
+
+.container {
+    max-width:1100px;
+    margin:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.card {
+    background:rgba(30,30,40,0.85);
+    border-radius:16px;
+    padding:20px;
+}
+
+.input-grid {
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px 20px;
+}
+
+.field {
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+
+.field span {
+    min-width:120px;
+}
+
+/* 入力＋ステッパー */
+.stepper {
+    display:flex;
+    align-items:center;
+    border:1px solid #444;
+    border-radius:6px;
+    overflow:hidden;
+    background:#111;
+}
+
+.stepper input {
+    width:80px;
+    text-align:center;
+    border:none;
+    background:transparent;
+    color:#fff;
+    outline:none;
+}
+
+/* 右側▲▼ */
+.stepper-btns {
+    display:flex;
+    flex-direction:column;
+    width:28px;
+    border-left:1px solid #333;
+}
+
+.stepper-btn {
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#222;
+    color:#aaa;
+    cursor:pointer;
+    user-select:none;
+    font-size:10px;
+}
+
+.stepper-btn:hover {
+    background:#333;
+    color:#fff;
+}
+
+/* スイッチ */
+.switch-row {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:10px;
+}
+
+.switch {
+    width:52px;
+    height:26px;
+    position:relative;
+}
+.switch input{display:none;}
+
+.slider {
+    position:absolute;
+    width:100%;
+    height:100%;
+    background:#555;
+    border-radius:20px;
+}
+.slider:before {
+    content:"";
+    position:absolute;
+    width:20px;
+    height:20px;
+    left:3px;
+    top:3px;
+    background:white;
+    border-radius:50%;
+    transition:.3s;
+}
+input:checked + .slider {
+    background:#4a90e2;
+}
+input:checked + .slider:before {
+    transform:translateX(26px);
+}
+
+button {
+    margin-top:10px;
+    margin-right:8px;
+    padding:8px 14px;
+    background:#4a90e2;
+    border:none;
+    border-radius:8px;
+    color:white;
+    cursor:pointer;
+}
+
+.chart-container { height:320px; }
+
+.score {
+    text-align:center;
+    margin-top:10px;
+    font-size:18px;
+    font-weight:bold;
+}
+
+.sub {
+    text-align:center;
+    font-size:13px;
+    color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<h1>【SW2.5】耐久チェッカー Ver.1</h1>
+
+<div class="container">
+
+<div class="card">
+
+<h2>ステータス</h2>
+
+<div class="input-grid">
+
+<!-- HP -->
+<div class="field">
+<span>HP</span>
+<div class="stepper">
+<input id="hp" value="60" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('hp',1)">▲</div>
+<div class="stepper-btn" onclick="chg('hp',-1)">▼</div>
+</div>
+</div>
+</div>
+
+<!-- 回避 -->
+<div class="field" id="evaRow">
+<span>回避力</span>
+<div class="stepper">
+<input id="eva" value="16" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('eva',1)">▲</div>
+<div class="stepper-btn" onclick="chg('eva',-1)">▼</div>
+</div>
+</div>
+</div>
+
+<!-- 生命 -->
+<div class="field">
+<span>生命抵抗力</span>
+<div class="stepper">
+<input id="vit" value="11" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('vit',1)">▲</div>
+<div class="stepper-btn" onclick="chg('vit',-1)">▼</div>
+</div>
+</div>
+</div>
+
+<!-- 精神 -->
+<div class="field">
+<span>精神抵抗力</span>
+<div class="stepper">
+<input id="mnd" value="12" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('mnd',1)">▲</div>
+<div class="stepper-btn" onclick="chg('mnd',-1)">▼</div>
+</div>
+</div>
+</div>
+
+<!-- 物理 -->
+<div class="field">
+<span>物理D軽減</span>
+<div class="stepper">
+<input id="phys" value="15" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('phys',1)">▲</div>
+<div class="stepper-btn" onclick="chg('phys',-1)">▼</div>
+</div>
+</div>
+</div>
+
+<!-- 魔法 -->
+<div class="field">
+<span>魔法D軽減</span>
+<div class="stepper">
+<input id="magic" value="5" oninput="sanitize(this)">
+<div class="stepper-btns">
+<div class="stepper-btn" onclick="chg('magic',1)">▲</div>
+<div class="stepper-btn" onclick="chg('magic',-1)">▼</div>
+</div>
+</div>
+</div>
+
+</div>
+
+<div class="switch-row">
+<span>魔法使い・射手系</span>
+<label class="switch">
+<input type="checkbox" id="ranged" onchange="toggleEva()">
+<span class="slider"></span>
+</label>
+</div>
+
+<button onclick="updateChart()">更新</button>
+<button onclick="saveImage()">結果保存（png形式）</button>
+
+</div>
+
+<div class="card" id="chartCard" style="display:none;">
+<h2>評価結果</h2>
+
+<div class="chart-container">
+<canvas id="radarChart"></canvas>
+</div>
+
+<div class="score" id="totalScore"></div>
+<div class="sub" id="scoreMax"></div>
+
+</div>
+
+</div>
+
+<script>
+let chart=null;
+
+/* ★完全サニタイズ（全角→半角＋数字以外除去） */
+function sanitize(el){
+ let v = el.value;
+
+ v = v.replace(/[０-９]/g, s =>
+  String.fromCharCode(s.charCodeAt(0) - 65248)
+ );
+
+ v = v.replace(/[^0-9]/g,'');
+ el.value = v;
+}
+
+/* ± */
+function chg(id,val){
+ const el=document.getElementById(id);
+ let n=parseInt(el.value||0);
+ if(isNaN(n)) n=0;
+ el.value=n+val;
+}
+
+/* 回避表示 */
+function toggleEva(){
+ const row=document.getElementById("evaRow");
+ row.style.visibility = document.getElementById("ranged").checked ? "hidden" : "visible";
+}
+
+/* 変換 */
+const convHP=v=>Math.min(10,v/12);
+const convPhys=v=>Math.min(10,v/3);
+const convMagic=v=>Math.min(10,v/1);
+const convEva=v=>Math.min(10,v/3.2);
+const convVit=v=>Math.min(10,v/2.2);
+const convMnd=v=>Math.min(10,v/2.4);
+
+/* チャート */
+function createChart(labels,data){
+ chart=new Chart(document.getElementById("radarChart"),{
+  type:'radar',
+  data:{labels,datasets:[{label:"評価（10段階）",data}]},
+  options:{
+   responsive:true,
+   maintainAspectRatio:false,
+   scales:{
+    r:{
+     min:0,
+     max:10,
+     ticks:{display:false},
+     grid:{color:"#555"}
+    }
+   }
+  }
+ });
+}
+
+/* 更新 */
+function updateChart(){
+
+ const r=document.getElementById("ranged").checked;
+
+ const hp=+document.getElementById("hp").value||0;
+ const eva=+document.getElementById("eva").value||0;
+ const vit=+document.getElementById("vit").value||0;
+ const mnd=+document.getElementById("mnd").value||0;
+ const phys=+document.getElementById("phys").value||0;
+ const magic=+document.getElementById("magic").value||0;
+
+ let data=r?
+ [convHP(hp),convPhys(phys),convMagic(magic),convVit(vit),convMnd(mnd)]:
+ [convHP(hp),convPhys(phys),convMagic(magic),convEva(eva),convVit(vit),convMnd(mnd)];
+
+ let labels=r?
+ ['HP','物理D軽減','魔法D軽減','生命抵抗力','精神抵抗力']:
+ ['HP','物理D軽減','魔法D軽減','回避力','生命抵抗力','精神抵抗力'];
+
+ let total=data.reduce((a,b)=>a+b,0);
+
+ document.getElementById("totalScore").innerHTML =
+ `総合値：${total.toFixed(1)}点`;
+
+ document.getElementById("scoreMax").innerHTML =
+ r?"※最大50点":"※最大60点";
+
+ document.getElementById("chartCard").style.display="block";
+
+ if(!chart) createChart(labels,data);
+ else{
+  chart.data.labels=labels;
+  chart.data.datasets[0].data=data;
+  chart.update();
+ }
+}
+
+/* 保存 */
+function saveImage(){
+ html2canvas(document.getElementById("chartCard"),{
+  scale:2,
+  backgroundColor:"#0f172a"
+ }).then(canvas=>{
+  const a=document.createElement("a");
+  a.download="result.png";
+  a.href=canvas.toDataURL();
+  a.click();
+ });
+}
+</script>
+
+</body>
+</html>
