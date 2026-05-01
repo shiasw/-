@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>【星屑の旅路】耐久チェッカー Ver.1</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas"></script>
+
+<style>
+body {
+    margin:0;
+    padding:20px;
+    font-family:sans-serif;
+    color:#ddd;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(255,255,255,0.08) 1px, transparent 1px),
+        radial-gradient(circle at 80% 70%, rgba(255,255,255,0.06) 1px, transparent 1px),
+        linear-gradient(135deg,#0f172a,#1e293b,#020617);
+}
+
+h1 { text-align:center; }
+
+.container {
+    max-width:1100px;
+    margin:auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.card {
+    background:rgba(30,30,40,0.85);
+    border-radius:16px;
+    padding:20px;
+}
+
+/* ★入力をゆったり戻す */
+.input-grid {
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:14px 20px;
+}
+
+.field {
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.field span {
+    min-width:120px;
+}
+
+input {
+    width:100px;   /* ←戻したポイント */
+    padding:6px 8px;
+    font-size:14px;
+    background:#111;
+    color:#fff;
+    border:1px solid #444;
+    border-radius:6px;
+}
+
+/* スイッチ */
+.switch-row {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:10px;
+}
+
+.switch {
+    width:52px;
+    height:26px;
+    position:relative;
+}
+.switch input{display:none;}
+
+.slider {
+    position:absolute;
+    width:100%;
+    height:100%;
+    background:#555;
+    border-radius:20px;
+}
+.slider:before {
+    content:"";
+    position:absolute;
+    width:20px;
+    height:20px;
+    left:3px;
+    top:3px;
+    background:white;
+    border-radius:50%;
+    transition:.3s;
+}
+input:checked + .slider {
+    background:#4a90e2;
+}
+input:checked + .slider:before {
+    transform:translateX(26px);
+}
+
+/* ボタン */
+button {
+    margin-top:10px;
+    margin-right:8px;
+    padding:8px 14px;
+    background:#4a90e2;
+    border:none;
+    border-radius:8px;
+    color:white;
+    cursor:pointer;
+}
+
+.chart-container {
+    height:320px;
+}
+
+.score {
+    text-align:center;
+    margin-top:10px;
+    font-size:18px;
+    font-weight:bold;
+}
+
+.sub {
+    text-align:center;
+    font-size:13px;
+    color:#aaa;
+}
+
+@media(max-width:800px){
+    .container{grid-template-columns:1fr;}
+}
+</style>
+</head>
+
+<body>
+
+<h1>【星屑の旅路】耐久チェッカー Ver.1</h1>
+
+<div class="container">
+
+<!-- 入力 -->
+<div class="card">
+<h2>ステータス</h2>
+
+<div class="input-grid">
+<div class="field"><span>HP</span><input id="hp" value="60"></div>
+<div class="field" id="evaRow"><span>回避力</span><input id="eva" value="16"></div>
+
+<div class="field"><span>生命抵抗力</span><input id="vit" value="11"></div>
+<div class="field"><span>精神抵抗力</span><input id="mnd" value="12"></div>
+
+<div class="field"><span>物理D軽減</span><input id="phys" value="15"></div>
+<div class="field"><span>魔法D軽減</span><input id="magic" value="5"></div>
+</div>
+
+<div class="switch-row">
+<span>魔法使い・射手系</span>
+<label class="switch">
+<input type="checkbox" id="ranged" onchange="toggleEva()">
+<span class="slider"></span>
+</label>
+</div>
+
+<button onclick="updateChart()">更新</button>
+<button onclick="saveImage()">結果保存（png形式）</button>
+
+</div>
+
+<!-- 結果 -->
+<div class="card" id="chartCard" style="display:none;">
+<h2>評価結果</h2>
+
+<div class="chart-container">
+<canvas id="radarChart"></canvas>
+</div>
+
+<div class="score" id="totalScore"></div>
+<div class="sub" id="scoreMax"></div>
+
+</div>
+
+</div>
+
+<script>
+let chart=null;
+
+function toggleEva(){
+ evaRow.style.visibility = ranged.checked ? "hidden" : "visible";
+}
+
+/* 変換 */
+const convHP=v=>Math.min(10,v/12);
+const convPhys=v=>Math.min(10,v/3);
+const convMagic=v=>Math.min(10,v/1);
+const convEva=v=>Math.min(10,v/3.2);
+const convVit=v=>Math.min(10,v/2.2);
+const convMnd=v=>Math.min(10,v/2.4);
+
+/* コメント */
+function getComment(t,r){
+ let s=r?8:10;
+ if(t<s)return"防御を極限まで抑えた構成。他分野に特化したスタイルです。";
+ if(t<s*2)return"個性重視の構成。役割特化の方向性が見えます。";
+ if(t<s*3)return"やや攻めっ気を感じる型。状況に応じた活躍が期待できます。";
+ if(t<s*4)return"バランス良好。安定した運用が可能です。";
+ if(t<s*5)return"高水準な耐久力。強敵相手でも安心感があります";
+ return"非常に高い完成度。いかなる局面においても安定した活躍が見込めます";
+}
+
+/* チャート（数値表示なし） */
+function createChart(labels,data){
+
+ chart=new Chart(radarChart,{
+  type:'radar',
+  data:{
+    labels,
+    datasets:[{
+      label:"評価（10段階）",
+      data
+    }]
+  },
+  options:{
+    responsive:true,
+    maintainAspectRatio:false,
+    scales:{
+      r:{
+        min:0,
+        max:10,
+        ticks:{display:false},
+        grid:{color:"#555"}
+      }
+    }
+  }
+ });
+}
+
+/* 更新 */
+function updateChart(){
+
+ let r=ranged.checked;
+
+ let data=r?
+ [convHP(hp.value),convPhys(phys.value),convMagic(magic.value),convVit(vit.value),convMnd(mnd.value)]:
+ [convHP(hp.value),convPhys(phys.value),convMagic(magic.value),convEva(eva.value),convVit(vit.value),convMnd(mnd.value)];
+
+ let labels=r?
+ ['HP','物理','魔法','生命','精神']:
+ ['HP','物理','魔法','回避','生命','精神'];
+
+ let total=data.reduce((a,b)=>a+b,0);
+ let c=getComment(total,r);
+
+ if(total>=40) c += "！";
+
+ totalScore.innerHTML=`総合値：${total.toFixed(1)}点<br>${c}`;
+ scoreMax.innerHTML=r?"※最大50点":"※最大60点";
+
+ chartCard.style.display="block";
+
+ if(!chart) createChart(labels,data);
+ else{
+  chart.data.labels=labels;
+  chart.data.datasets[0].data=data;
+  chart.update();
+ }
+}
+
+/* 保存 */
+function saveImage(){
+ html2canvas(document.getElementById("chartCard"),{
+  scale:2,
+  backgroundColor:"#0f172a"
+ }).then(canvas=>{
+  const link=document.createElement("a");
+  link.download="durability_result.png";
+  link.href=canvas.toDataURL("image/png");
+  link.click();
+ });
+}
+</script>
+
+</body>
+</html>
